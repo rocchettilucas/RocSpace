@@ -1,0 +1,11 @@
+# whisper-rs-sys uses bindgen + CMake to compile whisper.cpp on first build.
+# These [env] entries point cargo at the standard winget-installed locations
+# so `pnpm tauri:dev` works out of the box on Windows without extra shell
+# setup. Override locally if your LLVM / CMake live elsewhere.
+[env]
+LIBCLANG_PATH = { value = "C:/Program Files/LLVM/bin", force = false, relative = false }
+
+# CMake doesn't read an env var to find itself; we extend PATH instead.
+# Cargo doesn't natively merge env-PATH but most shells already pick up the
+# winget MSI install of CMake. If `cmake.exe` is missing from PATH, add
+# `C:\Program Files\CMake\bin` to the system PATH (winget normally does this).

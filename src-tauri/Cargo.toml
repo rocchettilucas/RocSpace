@@ -1,0 +1,100 @@
+[package]
+name = "rocspace"
+version = "1.0.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+# Two binaries now (see the `[[bin]]` sections below), so `cargo run` — which is
+# what `cargo tauri dev` shells out to — needs telling which one is the app.
+default-run = "rocspace"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "rocspace_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# The app itself. Declared rather than left to auto-discovery because the file
+# below has to be, and naming one target while the other is inferred is the kind
+# of asymmetry that turns into a surprise on the next Cargo release.
+[[bin]]
+name = "rocspace"
+path = "src/main.rs"
+
+# The MCP server a Claude Code pane gets through `--mcp-config`. A separate
+# binary rather than a thread inside the app: it is spawned by the agent CLI, in
+# the agent's own process tree, and it talks JSON-RPC over ITS stdin/stdout —
+# none of which an app window can lend it. It links the library for the
+# `rocplan` module, so both writers of `.rocspace/plan.json` share one
+# implementation of the file format rather than two that agree today.
+#
+# The hyphen matters: auto-discovery would name this target `rocspace_mcp` after
+# the file, and the path baked into the MCP config (see
+# `agents::command::mcp_binary_path`) is the hyphenated one.
+[[bin]]
+name = "rocspace-mcp"
+path = "src/bin/rocspace_mcp.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["unstable"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-store = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-os = "2"
+specta-typescript = "0.0.11"
+# `serde_json` gives `serde_json::Value` a `specta::Type` impl — the saved
+# session payload crosses IPC opaquely (see `sessions`), so the command
+# signatures name `Value` and specta has to be able to describe it.
+specta = { version = "=2.0.0-rc.24", features = ["serde_json"] }
+tauri-specta = { version = "=2.0.0-rc.24", features = ["derive", "typescript"] }
+tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+portable-pty = "0.9"
+which = "8"
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+# Shell-word splitting for AgentType::Custom command lines (agents/command.rs).
+shell-words = "1"
+
+# RocTalk (voice dictation) ---------------------------------------------------
+# whisper-rs needs LIBCLANG_PATH set on Windows (LLVM install).
+whisper-rs = { version = "0.16", default-features = false }
+cpal = "0.16"
+parking_lot = "0.12"
+num_cpus = "1"
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
+futures-util = "0.3"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2"
+# Desktop only, because a second instance is a desktop idea — and because the
+# plugin has no mobile implementation. Two RocSpaces share one
+# `~/.rocspace/agent-events.jsonl`, one `settings.dat` and one push-to-talk
+# accelerator, and share none of them safely; see `lib::run`.
+tauri-plugin-single-instance = "2"
+
+# `getpwuid_r`, for the one question no crate in this tree could answer: which
+# shell this account actually uses when `$SHELL` is missing — which is how a
+# Finder-launched app is started (`cli_binary::user_shell`).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+

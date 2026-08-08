@@ -1,0 +1,293 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Theme tokens
+
+   The 19 `--rs-*` custom properties below are the single source of truth for
+   color in RocSpace. They are defined here with the `rocspace-dark` values so
+   the very first paint is correct even before JS runs; `applyTheme()`
+   (src/themes/apply.ts) then re-writes them — plus `data-theme` and
+   `color-scheme` — on <html> for whichever theme the user picked.
+
+   Rules for new UI:
+     • never hard-code a hex — use a Tailwind token below, `var(--rs-*)`,
+       or a `color-mix()` of tokens (that is how tints/alphas are built);
+     • the theme registry (src/themes/registry.ts) owns the values, this
+       block only mirrors the default so there is no flash of unstyled color.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+
+  --rs-background: #0a0c14;
+  --rs-panel: #10131c;
+  --rs-surface: #171b26;
+  --rs-surface-hover: #212635;
+  --rs-surface-active: #2d3346;
+  --rs-border: #212635;
+  --rs-border-hover: #2d3346;
+  --rs-border-active: #8b6cea;
+  --rs-text: #e9eaf2;
+  --rs-text-2: #a8b0c2;
+  --rs-text-3: #6c7388;
+  --rs-primary: #8b6cea;
+  --rs-primary-fg: #0a0c14;
+  --rs-info: #6ea8fe;
+  --rs-success: #4ade80;
+  --rs-warning: #fbbf24;
+  --rs-danger: #f87171;
+  --rs-term-fg: #e9eaf2;
+  --rs-purple: #c084fc;
+
+  /* Brand gradient — sampled from the RocSpace logo. Deliberately NOT themed:
+     like a wordmark, it stays the same in every theme (the same call the
+     BridgeSpace teardown makes for its per-agent tints). */
+  --rs-brand-from: #5363ff;
+  --rs-brand-to: #b07ae8;
+}
+
+/* Tailwind v4 registers custom tokens as utilities via `@theme`. Every color
+   token here resolves to a `--rs-*` var, so `bg-surface-2`, `text-fg-muted`,
+   `border-accent/40` … all follow the active theme with zero extra work. */
+@theme {
+  /* Surfaces — layered, from app background up to borders/focused inputs. */
+  --color-surface-0: var(--rs-background);
+  --color-surface-1: var(--rs-panel);
+  --color-surface-2: var(--rs-surface);
+  --color-surface-3: var(--rs-surface-hover);
+  --color-surface-4: var(--rs-surface-active);
+
+  /* Borders — hairlines, separators and the focused-element outline.
+     Deliberately NOT the surface ramp: `surface-3/4` are elevation *fills*
+     (hover / pressed backgrounds), these are the lines *between* things. The
+     two happen to be the same hex on RocSpace Dark, which is how they got
+     conflated — on every other theme they differ, and drawing a border with an
+     elevation fill collapses panel separation (on Light: #e5e8ed instead of
+     #d1d5dc). Border utilities read these; `surface-3/4` stay for fills. */
+  --color-border: var(--rs-border);
+  --color-border-hover: var(--rs-border-hover);
+  --color-border-active: var(--rs-border-active);
+
+  /* Text */
+  --color-fg-primary: var(--rs-text);
+  --color-fg-secondary: var(--rs-text-2);
+  --color-fg-muted: var(--rs-text-3);
+
+  /* Accents. `accent-hover` leans the accent toward the theme's text color
+     (lighter on dark themes, darker on light ones); `accent-soft` is the
+     low-alpha tint used for selected cards. */
+  --color-accent: var(--rs-primary);
+  --color-accent-hover: color-mix(
+    in srgb,
+    var(--rs-primary) 82%,
+    var(--rs-text)
+  );
+  --color-accent-soft: color-mix(in srgb, var(--rs-primary) 18%, transparent);
+  --color-accent-fg: var(--rs-primary-fg);
+  --color-success: var(--rs-success);
+  --color-warning: var(--rs-warning);
+  --color-error: var(--rs-danger);
+  --color-info: var(--rs-info);
+
+  /* Status — terminal status pill colors */
+  --color-status-idle: var(--rs-text-3);
+  --color-status-running: var(--rs-success);
+  --color-status-waiting: var(--rs-warning);
+  --color-status-error: var(--rs-danger);
+  --color-status-complete: var(--rs-primary);
+  --color-status-paused: var(--rs-text-2);
+
+  /* Typography */
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    sans-serif;
+  --font-mono:
+    "JetBrains Mono", "SF Mono", Menlo, Monaco, "Cascadia Mono", monospace;
+
+  /* Radii */
+  --radius-card: 0.5rem;
+  --radius-input: 0.375rem;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--rs-background);
+  color: var(--rs-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Disable the OS-level rubber-band / overscroll inside the Tauri window */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+
+/* Re-enable text selection only inside terminal, prompt, and editable contexts */
+.allow-select,
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Terminal "ready" glow — applied to a TerminalCard when its status reaches a
+   done state (complete or awaiting_approval) so the user sees at a glance which
+   pane needs their attention. The actual `box-shadow` lives in the component's
+   inline style (we have to compose it with the group-color inset stripe), and
+   pulls from this animated CSS variable. @property registers --ready-glow as
+   a <percentage> so the browser can tween it between keyframes AND so it can
+   be fed straight into `color-mix()` against the theme's success token. */
+@property --ready-glow {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 55%;
+}
+
+/* The outer halo runs at ~55% of the ring's strength. It gets its own
+   registered property (rather than a calc() inside color-mix) so both values
+   are plain percentages the mix can consume directly. */
+@property --ready-glow-soft {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 30%;
+}
+
+.terminal-ready-pulse {
+  animation: terminal-ready-pulse 2.4s ease-in-out infinite;
+}
+
+.terminal-host {
+  contain: strict;
+  /* Match xterm's theme background so any sub-cell rounding gap (xterm snaps
+     to integer character rows; the container does not) is invisible instead
+     of showing as a black band below the last row. */
+  background: var(--rs-background);
+  box-sizing: border-box;
+}
+
+/* Padding is applied to `.xterm` (NOT `.terminal-host`) on purpose: the
+   FitAddon subtracts `padding-*` from `terminal.element` (= `.xterm`) when it
+   computes available cols/rows. Putting padding on the parent host instead
+   would leave FitAddon overcounting space and proposing one extra row that
+   overflows past the bottom edge — manifesting as the inconsistent "botched"
+   layout users hit when panes resize. */
+.terminal-host .xterm {
+  height: 100%;
+  max-height: 100%;
+  overflow: visible;
+  padding: 4px 6px;
+  box-sizing: border-box;
+}
+
+.terminal-host .xterm-viewport,
+.terminal-host .xterm-screen {
+  max-height: 100%;
+}
+
+/* Hide the xterm-viewport scrollbar — xterm renders its own scroll affordance,
+   and the OS scrollbar can shift the character grid one column right when it
+   appears, which makes the prompt hover/cursor line look misaligned. */
+.terminal-host .xterm-viewport::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@keyframes terminal-ready-pulse {
+  0%,
+  100% {
+    --ready-glow: 35%;
+    --ready-glow-soft: 19%;
+  }
+  50% {
+    --ready-glow: 90%;
+    --ready-glow-soft: 50%;
+  }
+}
+
+/* Terminal "flash" outline — brief accent pulse applied when the user clicks a
+   notification row to locate a card among many. Uses `outline` (not box-shadow)
+   so it stacks independently of the inline box-shadow used for the group stripe
+   and ready-glow. @property lets the browser interpolate --flash-glow as a
+   <percentage>, which doubles as the mix amount against the theme accent. */
+@property --flash-glow {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+.terminal-flash-outline {
+  animation: terminal-flash-outline 1.8s ease-out forwards;
+  outline: 2px solid
+    color-mix(in srgb, var(--rs-primary) var(--flash-glow, 0%), transparent);
+  outline-offset: -2px;
+}
+
+@keyframes terminal-flash-outline {
+  0% {
+    --flash-glow: 95%;
+  }
+  70% {
+    --flash-glow: 45%;
+  }
+  100% {
+    --flash-glow: 0%;
+  }
+}
+
+/* Reduced motion.
+ *
+ * The rule applied here: an animation that LOOPS FOREVER stands down, and one
+ * that runs once, briefly, in answer to something the user just did stays.
+ * Endless motion in the corner of the eye is what the OS setting is actually
+ * asking about; a 1.8s fade after clicking a notification is a response, and
+ * removing it would leave the click with no answer at all.
+ *
+ * What stands down, and what each one costs a reader who never sees it:
+ *   .terminal-ready-pulse — the pane's "an agent is waiting for you" glow. The
+ *     pane header's status dot and the notification bell say the same thing,
+ *     so the glow becomes a static halo rather than a breathing one.
+ *   Tailwind's `animate-pulse` on the status dots is NOT listed here: those
+ *     call sites use the `motion-safe:` variant, so the dot simply does not
+ *     take the animation in the first place.
+ *   Roc's orb is not listed either, and that is the sharpest case: it is a
+ *     canvas rather than a keyframe, so `animation: none` would not reach it.
+ *     It asks the media query itself and schedules NO frame at all under it,
+ *     drawing one representative still per state instead (see `RocOrb`) —
+ *     which is the only version of standing down that actually stops the work.
+ *
+ * What stays:
+ *   .terminal-flash-outline — one shot, 1.8s, and only ever the direct answer
+ *     to a click on a notification. It is how the app points at the pane the
+ *     user asked to be shown.
+ *   `animate-spin` on the loading spinners — bounded by the operation, and the
+ *     only signal that anything is in flight. Stopping it would leave a static
+ *     icon that reads as a broken control.
+ *   Color transitions (`transition-colors`) — a hue change is not movement. */
+@media (prefers-reduced-motion: reduce) {
+  .terminal-ready-pulse {
+    animation: none;
+  }
+}
+
+/* Native-feeling scrollbars — follow the theme's elevation steps. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--rs-surface-hover);
+  border-radius: 5px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--rs-surface-active);
+}

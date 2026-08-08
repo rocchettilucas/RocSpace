@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri / Rust
+src-tauri/target
+src-tauri/gen/schemas
+src-tauri/WixTools
+# Sidecar staging area — `pnpm mcp:stage` puts a freshly built `rocspace-mcp`
+# here under its target-triple name for `bundle.externalBin` to pick up.
+src-tauri/binaries
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Build / cache artifacts
+*.tsbuildinfo
+coverage
+.turbo
+.eslintcache

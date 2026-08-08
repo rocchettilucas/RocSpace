@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Merged into the generated bundle Info.plist by tauri-bundler, which picks up
+  any Info.plist sitting next to tauri.conf.json. Keys Tauri already writes
+  (version, identifier, icon) stay out of here so there is one source of truth.
+
+  Only NSMicrophoneUsageDescription: it is the one key RocSpace functionally
+  requires, and TCC keys are not free — each one is a prompt the user has to
+  answer, so a speculative key is a worse default than a missing one. The app
+  touches no other gated resource (no camera, no AppleEvents/osascript, no
+  Contacts); `say` and `claude` are plain subprocesses, not TCC surfaces.
+
+  Why this is load-bearing rather than cosmetic: macOS does not merely deny an
+  audio request from a bundle without this key, it TERMINATES the process. So
+  the packaged app would die the first time push-to-talk opened an input
+  stream, while `tauri dev` stayed healthy forever — a dev build is a bare
+  binary launched from a terminal, so TCC attributes the request to the
+  terminal, which already holds the permission. The divergence is the whole
+  point: no amount of testing the dev build can surface this.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>RocSpace uses your microphone for push-to-talk dictation and for speaking to Roc. Audio is transcribed by Whisper on this Mac and never leaves it.</string>
+</dict>
+</plist>

@@ -1,0 +1,55 @@
+name: CI
+
+# macOS-only on purpose: it is the primary dev platform and GitHub's macOS
+# runners already carry the system webview Tauri links against. An Ubuntu job
+# would need the whole webkit2gtk/libsoup apt dance for no extra coverage of
+# code we actually ship today.
+on:
+  push:
+    branches: [main, "revamp/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      # whisper-rs builds whisper.cpp from source and needs cmake.
+      - run: brew install cmake || true
+
+      # whisper-rs-sys runs bindgen, which needs libclang.dylib explicitly on
+      # macOS (it does not consult xcrun). Resolve from the active toolchain.
+      - run: echo "LIBCLANG_PATH=$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib" >> "$GITHUB_ENV"
+
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      # The sidecar staging `pnpm tauri:build` depends on, so a break in the
+      # script is caught here rather than in a release nobody runs until they
+      # need one. Nearly free at this point: `cargo test` has already built
+      # `rocspace-mcp`, so this is a copy and a rename.
+      - run: node scripts/build-mcp-sidecar.mjs --stage

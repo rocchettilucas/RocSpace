@@ -1,0 +1,14 @@
+dist
+node_modules
+pnpm-lock.yaml
+src-tauri/target
+src-tauri/gen
+public
+src/assets
+
+# Prose. Prettier's markdown reflow produces large, meaningless diffs in the
+# revamp docs and README without improving readability.
+**/*.md
+
+# Generated IPC bindings (tauri-specta output; lands in a later phase).
+src/lib/bindings.gen.ts
